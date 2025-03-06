@@ -1,9 +1,10 @@
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.131.3/build/three.module.js";
+
+const THREE = window.THREE;
 
 // Firebase Configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyDQpVNR3Bw2y-gsopI0f9aZFOIvfgw3tc0",
-    databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/"
+    apiKey: "YOURAPIKEY",
+    databaseURL: "https://YOURFIREBASEURL.firebaseio.com/"
 };
 firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref("iss/location");
@@ -11,7 +12,7 @@ const dbRef = firebase.database().ref("iss/location");
 // Create Scene
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
@@ -21,11 +22,17 @@ const earthTexture = textureLoader.load("assets/earth_texture.jpg");
 const issTexture = textureLoader.load("assets/iss_vector.png");
 
 // Create Earth
-const earth = new THREE.Mesh(new THREE.SphereGeometry(2, 32, 32), new THREE.MeshStandardMaterial({ map: earthTexture }));
+const earth = new THREE.Mesh(
+    new THREE.SphereGeometry(2, 32, 32),
+    new THREE.MeshStandardMaterial({ map: earthTexture })
+);
 scene.add(earth);
 
-// Create ISS Marker
-const iss = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ map: issTexture }));
+// Create ISS as a 2D Plane (Not a Sphere)
+const issOrbitRadius = 2.5; // Distance from Earth's center
+const issGeometry = new THREE.PlaneGeometry(0.5, 0.3); // Width, Height
+const issMaterial = new THREE.MeshBasicMaterial({ map: issTexture, transparent: true, side: THREE.DoubleSide });
+const iss = new THREE.Mesh(issGeometry, issMaterial);
 scene.add(iss);
 
 // Lighting
@@ -34,9 +41,24 @@ light.position.set(10, 10, 10);
 scene.add(light);
 
 // Camera Position
-camera.position.z = 5;
+camera.position.z = 6;
 
-// Update ISS Position
+// Create a div to show ISS real-time coordinates
+const infoDiv = document.createElement("div");
+infoDiv.style.position = "absolute";
+infoDiv.style.top = "10px";
+infoDiv.style.left = "10px";
+infoDiv.style.color = "white";
+infoDiv.style.padding = "10px";
+infoDiv.style.background = "rgba(0,0,0,0.5)";
+infoDiv.style.fontSize = "14px";
+infoDiv.innerHTML = "Fetching ISS Coordinates...";
+document.body.appendChild(infoDiv);
+
+// Variables for ISS Revolution
+let theta = 0;
+
+// Fetch ISS Real-Time Coordinates (Only for Display)
 dbRef.on("value", (snapshot) => {
     const data = snapshot.val();
     if (!data) return;
@@ -44,18 +66,26 @@ dbRef.on("value", (snapshot) => {
     const lat = parseFloat(data.latitude);
     const lon = parseFloat(data.longitude);
 
-    const phi = (90 - lat) * (Math.PI / 180);
-    const theta = (lon + 180) * (Math.PI / 180);
-
-    iss.position.x = 2 * Math.sin(phi) * Math.cos(theta);
-    iss.position.y = 2 * Math.cos(phi);
-    iss.position.z = 2 * Math.sin(phi) * Math.sin(theta);
+    // Update only the info div (No effect on position)
+    infoDiv.innerHTML = `ISS Coordinates:<br>Latitude: ${lat}<br>Longitude: ${lon}`;
 });
 
-// Animation Loop
+// Animation Loop for ISS Orbit
 function animate() {
     requestAnimationFrame(animate);
+    
+    // Rotate Earth
     earth.rotation.y += 0.001;
+
+    // Make ISS revolve perfectly around Earth's middle
+    theta += 0.01; // Adjust speed of revolution
+    iss.position.x = issOrbitRadius * Math.sin(theta);
+    iss.position.z = issOrbitRadius * Math.cos(theta);
+    iss.position.y = 0; // Always orbit in the middle (equator)
+
+    // Make ISS face the camera
+    iss.lookAt(camera.position);
+
     renderer.render(scene, camera);
 }
 animate();
