@@ -1,0 +1,10 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background: url('assets/stars_bg.jpg') no-repeat center center fixed;
+    background-size: cover;
+}
+
+canvas {
+    display: block;
+}
